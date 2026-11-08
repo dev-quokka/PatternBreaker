@@ -1,0 +1,22 @@
+# Unreal Engine generated files
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+
+# Visual Studio generated files
+.vs/
+.vsconfig
+*.sln
+*.slnx
+*.suo
+*.VC.db
+*.VC.opendb
+
+# Visual Studio user-specific files
+*.user
+*.userosscache
+*.sln.docstates
+
+# Other IDE files
+.idea/
