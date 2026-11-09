@@ -6,6 +6,7 @@
 #include "EngineUtils.h"
 #include "InputCoreTypes.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/World.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -15,6 +16,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "PatternBreaker.h"
+#include "PatternBreakerGameMode.h"
 
 APatternBreakerCharacter::APatternBreakerCharacter()
 {
@@ -199,6 +201,12 @@ void APatternBreakerCharacter::AttackBossForTest()
 
 	UWorld* World = GetWorld();
 	if (!World)
+	{
+		return;
+	}
+
+	const APatternBreakerGameMode* RaidMode = World->GetAuthGameMode<APatternBreakerGameMode>();
+	if (RaidMode && !RaidMode->IsRaidInProgress())
 	{
 		return;
 	}

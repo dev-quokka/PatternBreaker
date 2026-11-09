@@ -2,11 +2,15 @@
 
 
 #include "PatternBreakerPlayerController.h"
+#include "Components/InputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/World.h"
+#include "InputCoreTypes.h"
 #include "InputMappingContext.h"
 #include "Blueprint/UserWidget.h"
 #include "PatternBreaker.h"
+#include "PatternBreakerGameMode.h"
 #include "Widgets/Input/SVirtualJoystick.h"
 
 void APatternBreakerPlayerController::BeginPlay()
@@ -40,6 +44,8 @@ void APatternBreakerPlayerController::SetupInputComponent()
 	// only add IMCs for local player controllers
 	if (IsLocalPlayerController())
 	{
+		InputComponent->BindKey(EKeys::M, IE_Pressed, this, &APatternBreakerPlayerController::RequestMainMenuReturn);
+
 		// Add Input Mapping Contexts
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 		{
@@ -56,6 +62,17 @@ void APatternBreakerPlayerController::SetupInputComponent()
 					Subsystem->AddMappingContext(CurrentContext, 0);
 				}
 			}
+		}
+	}
+}
+
+void APatternBreakerPlayerController::RequestMainMenuReturn()
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (APatternBreakerGameMode* RaidMode = World->GetAuthGameMode<APatternBreakerGameMode>())
+		{
+			RaidMode->ReturnToMainMenu();
 		}
 	}
 }

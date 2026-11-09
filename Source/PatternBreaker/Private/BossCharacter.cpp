@@ -2,7 +2,9 @@
 
 
 #include "BossCharacter.h"
+#include "Engine/World.h"
 #include "PatternBreakerCharacter.h"
+#include "PatternBreakerGameMode.h"
 #include "EngineUtils.h"
 
 // Sets default values
@@ -142,6 +144,12 @@ void ABossCharacter::PerformAreaAttack()
 		return;
 	}
 
+	const APatternBreakerGameMode* RaidMode = World->GetAuthGameMode<APatternBreakerGameMode>();
+	if (RaidMode && !RaidMode->IsRaidInProgress())
+	{
+		return;
+	}
+
 	int32 HitCount = 0;
 	const FVector BossLocation = GetActorLocation();
 	const double RadiusSquared = FMath::Square(static_cast<double>(AttackRadius));
@@ -167,10 +175,14 @@ void ABossCharacter::PerformAreaAttack()
 			continue;
 		}
 
-		UE_LOG(LogTemp, Log, TEXT("Boss [%s] area attack: player [%s] hit (20 damage, %.1f cm)."),
+		UE_LOG(LogTemp, Log, TEXT("Boss [%s] area attack: player [%s] hit (50 damage, %.1f cm)."),
 			*GetName(), *Player->GetName(), FMath::Sqrt(DistanceSquared));
-		Player->ApplyPlayerDamage(20.0f);
+		Player->ApplyPlayerDamage(50.0f);
 		++HitCount;
+		if (RaidMode && !RaidMode->IsRaidInProgress())
+		{
+			break;
+		}
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("Boss [%s] area attack complete: %d player(s) hit."), *GetName(), HitCount);
