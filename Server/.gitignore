@@ -1,0 +1,7 @@
+/build/
+/out/
+/vcpkg_installed/
+/CMakeUserPresets.json
+/CMakeCache.txt
+/CMakeFiles/
+/cmake_install.cmake

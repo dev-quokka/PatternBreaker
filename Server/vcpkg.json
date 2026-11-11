@@ -1,0 +1,23 @@
+{
+  "name": "pattern-breaker-server",
+  "version-string": "0.1.0",
+  "dependencies": [
+    {
+      "name": "drogon",
+      "default-features": false,
+      "features": ["mysql"]
+    },
+    {
+      "name": "libmariadb",
+      "default-features": false,
+      "features": ["openssl"]
+    },
+    "argon2",
+    {
+      "name": "jwt-cpp",
+      "default-features": false,
+      "features": ["picojson"]
+    },
+    "openssl"
+  ]
+}
