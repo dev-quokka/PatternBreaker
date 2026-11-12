@@ -181,6 +181,11 @@ void APatternBreakerCharacter::DoJumpStart()
 	{
 		return;
 	}
+	const APatternBreakerGameMode* RaidMode = GetWorld() ? GetWorld()->GetAuthGameMode<APatternBreakerGameMode>() : nullptr;
+	if (RaidMode && RaidMode->IsRaidWaitingToStart())
+	{
+		return;
+	}
 
 	// signal the character to jump
 	Jump();

@@ -39,7 +39,7 @@ public:
     static constexpr std::chrono::seconds saveTimeout{8};
 
     enum class StartCode { Started, AlreadyActive, Unavailable };
-    enum class FinishCode { SaveClear, Dead, NotFound, Expired, Saving, AlreadyFinished };
+    enum class FinishCode { SaveClear, ClearAlreadySaved, Dead, NotFound, Expired, Saving, AlreadyFinished };
     enum class SaveOutcome { Committed, Retryable, Failed, Stale };
 
     struct StartResult { StartCode code; std::string runId; };
@@ -50,7 +50,12 @@ public:
         Clock::time_point deadline;
         Clock::time_point retryUntil;
     };
-    struct FinishResult { FinishCode code; std::optional<SaveAttempt> attempt; };
+    struct FinishResult
+    {
+        FinishCode code;
+        std::optional<SaveAttempt> attempt;
+        std::optional<std::uint32_t> savedElapsedMs = std::nullopt;
+    };
 
     StartResult start(std::uint64_t userId, Clock::time_point now);
     FinishResult finish(std::uint64_t userId, const std::string& runId, bool clear, Clock::time_point now);
@@ -63,13 +68,15 @@ private:
         std::uint64_t userId;
         bool expired;
         Clock::time_point retainUntil;
+        std::optional<std::uint32_t> savedElapsedMs;
     };
 
     using SessionMap = std::unordered_map<std::string, RaidSession>;
     static bool isExpired(const RaidSession& session, Clock::time_point now);
     static void recoverTimedOutSave(RaidSession& session, Clock::time_point now);
     void pruneClosed(Clock::time_point now);
-    void close(SessionMap::iterator session, bool expired, Clock::time_point now);
+    void close(SessionMap::iterator session, bool expired, Clock::time_point now,
+               std::optional<std::uint32_t> savedElapsedMs = std::nullopt);
 
     std::mutex mutex_;
     SessionMap sessions_;

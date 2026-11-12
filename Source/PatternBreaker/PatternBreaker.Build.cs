@@ -21,7 +21,7 @@ public class PatternBreaker : ModuleRules
 			"Slate"
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { });
+		PrivateDependencyModuleNames.AddRange(new string[] { "HTTP", "Json" });
 
 		PublicIncludePaths.AddRange(new string[] {
 			"PatternBreaker",

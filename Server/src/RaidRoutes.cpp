@@ -92,6 +92,15 @@ std::optional<FinishRequest> readFinishRequest(const drogon::HttpRequestPtr& req
     return FinishRequest{std::move(runId), result == "clear"};
 }
 
+void respondSavedClear(const ResponseCallback& respond, const std::string& runId, std::uint32_t elapsedMs)
+{
+    Json::Value body(Json::objectValue);
+    body["status"] = "clear";
+    body["run_id"] = runId;
+    body["elapsed_ms"] = Json::UInt(elapsedMs);
+    respondJson(respond, drogon::k200OK, body);
+}
+
 void saveClearRecord(const drogon::orm::DbClientPtr& client, const std::shared_ptr<RaidSessions>& sessions,
                      trantor::EventLoop& loop, const RaidSessions::SaveAttempt& attempt, ResponseCallback respond)
 {
@@ -106,16 +115,14 @@ void saveClearRecord(const drogon::orm::DbClientPtr& client, const std::shared_p
         const auto now = RaidSessions::Clock::now();
         const auto outcome = sessions->completeSave(attempt, saved, now);
         auto respondOnce = std::move(*reply);
-        Json::Value body(Json::objectValue);
-        body["run_id"] = attempt.record.runId;
         if (outcome == RaidSessions::SaveOutcome::Committed)
         {
-            body["status"] = "clear";
-            body["elapsed_ms"] = Json::UInt(attempt.record.elapsedMs);
-            respondJson(respondOnce, drogon::k200OK, body);
+            respondSavedClear(respondOnce, attempt.record.runId, attempt.record.elapsedMs);
         }
         else
         {
+            Json::Value body(Json::objectValue);
+            body["run_id"] = attempt.record.runId;
             body["status"] = "database_unavailable";
             body["retryable"] = outcome == RaidSessions::SaveOutcome::Retryable ||
                                 (outcome == RaidSessions::SaveOutcome::Stale && now < attempt.retryUntil);
@@ -211,6 +218,9 @@ void registerRaidRoutes(drogon::HttpAppFramework& app, const drogon::orm::DbClie
                     return;
                 case RaidSessions::FinishCode::SaveClear:
                     saveClearRecord(client, sessions, *loop, *finished.attempt, std::move(respond));
+                    return;
+                case RaidSessions::FinishCode::ClearAlreadySaved:
+                    respondSavedClear(respond, input->runId, *finished.savedElapsedMs);
                     return;
                 case RaidSessions::FinishCode::Dead:
                     Json::Value body(Json::objectValue);

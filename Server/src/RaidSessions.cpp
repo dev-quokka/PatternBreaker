@@ -10,7 +10,6 @@ namespace
 {
 constexpr std::size_t maxSessions = 4096;
 constexpr std::size_t maxClosedRaids = 4096;
-constexpr std::chrono::minutes closedRetention{5};
 
 std::string generateRunId()
 {
@@ -71,6 +70,10 @@ RaidSessions::FinishResult RaidSessions::finish(std::uint64_t userId, const std:
         const auto closed = closed_.find(runId);
         if (closed != closed_.end() && closed->second.userId == userId && closed->second.retainUntil > now)
         {
+            if (clear && closed->second.savedElapsedMs.has_value())
+            {
+                return {FinishCode::ClearAlreadySaved, {}, closed->second.savedElapsedMs};
+            }
             return {closed->second.expired ? FinishCode::Expired : FinishCode::AlreadyFinished, {}};
         }
         return {FinishCode::NotFound, {}};
@@ -126,7 +129,7 @@ RaidSessions::SaveOutcome RaidSessions::completeSave(const SaveAttempt& attempt,
     }
     if (saved && now < found->second.saveUntil)
     {
-        close(found, false, now);
+        close(found, false, now, found->second.clearRecord->elapsedMs);
         return SaveOutcome::Committed;
     }
     if (now >= found->second.retryUntil)
@@ -176,7 +179,8 @@ void RaidSessions::pruneClosed(Clock::time_point now)
     }
 }
 
-void RaidSessions::close(SessionMap::iterator session, bool expired, Clock::time_point now)
+void RaidSessions::close(SessionMap::iterator session, bool expired, Clock::time_point now,
+                         std::optional<std::uint32_t> savedElapsedMs)
 {
     pruneClosed(now);
     if (closedOrder_.size() >= maxClosedRaids)
@@ -185,7 +189,7 @@ void RaidSessions::close(SessionMap::iterator session, bool expired, Clock::time
         closedOrder_.pop_front();
     }
     const auto& raid = session->second;
-    closed_.emplace(raid.runId, ClosedRaid{raid.userId, expired, now + closedRetention});
+    closed_.emplace(raid.runId, ClosedRaid{raid.userId, expired, now + retryRetention, savedElapsedMs});
     closedOrder_.push_back(raid.runId);
     activeByUser_.erase(raid.userId);
     sessions_.erase(session);
