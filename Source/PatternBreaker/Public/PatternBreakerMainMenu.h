@@ -44,8 +44,12 @@ private:
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UWidgetSwitcher> AuthScreens;
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UWidget> LoginPage;
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UWidget> MenuPage;
-	UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TXT_Username;
-	UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TXT_Password;
+	UPROPERTY(BlueprintReadOnly, Category = "Login",
+		meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UEditableTextBox> TXT_Username;
+	UPROPERTY(BlueprintReadOnly, Category = "Password",
+		meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UEditableTextBox> TXT_Password;
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> BTN_Login;
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> BTN_Register;
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> BTN_Logout;
