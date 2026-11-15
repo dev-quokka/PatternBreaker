@@ -8,16 +8,20 @@
 void UPBRankingWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-	RankingTitle = Cast<UTextBlock>(GetWidgetFromName(TEXT("TXT_RankingTitle")));
+	if (UTextBlock* Title = Cast<UTextBlock>(GetWidgetFromName(TEXT("TXT_RankingTitle"))))
+	{
+		Title->SetText(LOCTEXT("RankingTitle", "RANKING"));
+	}
+	UpdatePersonalRecord(EPBRankingState::Idle);
 	EmptyMessage = Cast<UTextBlock>(GetWidgetFromName(TEXT("TXT_EmptyRanking")));
-	if (!RankingTitle || !EmptyMessage) return;
-	OriginalTitle = RankingTitle->GetText();
+	if (!EmptyMessage) return;
 	OriginalEmptyMessage = EmptyMessage->GetText();
 
 	UGameInstance* Instance = GetGameInstance();
 	Ranking = Instance ? Instance->GetSubsystem<UPBRankingSubsystem>() : nullptr;
 	if (!Ranking)
 	{
+		UpdatePersonalRecord(EPBRankingState::Error);
 		EmptyMessage->SetText(LOCTEXT("Unavailable", "Rankings are unavailable."));
 		EmptyMessage->SetVisibility(ESlateVisibility::HitTestInvisible);
 		return;
@@ -47,7 +51,7 @@ void UPBRankingWidget::DisconnectRanking()
 		Ranking->CloseRanking();
 		Ranking = nullptr;
 	}
-	if (RankingTitle) RankingTitle->SetText(OriginalTitle);
+	UpdatePersonalRecord(EPBRankingState::Idle);
 	if (EmptyMessage) EmptyMessage->SetText(OriginalEmptyMessage);
 }
 
@@ -78,24 +82,26 @@ void UPBRankingWidget::UpdateRanking()
 		}
 	}
 
-	FText Personal;
-	switch (Ranking->GetPersonalState())
+	if (Ranking) UpdatePersonalRecord(Ranking->GetPersonalState(), Ranking->GetPersonalBest());
+}
+
+void UPBRankingWidget::UpdatePersonalRecord(EPBRankingState State, const FPBRankingRecord& Best)
+{
+	FText Rank = LOCTEXT("NoRank", "—");
+	FText ClearTime = Rank;
+	switch (State)
 	{
-	case EPBRankingState::Loading: Personal = LOCTEXT("LoadingBest", "loading..."); break;
-	case EPBRankingState::Empty: Personal = LOCTEXT("NoBest", "no record"); break;
-	case EPBRankingState::Error: Personal = LOCTEXT("BestFailed", "unavailable"); break;
+	case EPBRankingState::Loading: ClearTime = LOCTEXT("LoadingBest", "Loading..."); break;
+	case EPBRankingState::Empty: ClearTime = LOCTEXT("NoBest", "No record"); break;
+	case EPBRankingState::Error: ClearTime = LOCTEXT("BestFailed", "Unavailable"); break;
 	case EPBRankingState::Ready:
-	{
-		const FPBRankingRecord Best = Ranking->GetPersonalBest();
-		Personal = Best.Rank > 0
-			? FText::Format(LOCTEXT("BestWithRank", "{0} (#{1})"), Best.ClearTimeText, FText::AsNumber(Best.Rank))
-			: Best.ClearTimeText;
+		if (Best.Rank > 0) Rank = FText::Format(LOCTEXT("PersonalRank", "#{0}"), FText::AsNumber(Best.Rank));
+		ClearTime = Best.ClearTimeText;
 		break;
-	}
 	default: break;
 	}
-	RankingTitle->SetText(Personal.IsEmpty() ? OriginalTitle
-		: FText::Format(LOCTEXT("TitleWithBest", "{0}  |  My best: {1}"), OriginalTitle, Personal));
+	if (TXT_MyRank) TXT_MyRank->SetText(Rank);
+	if (TXT_MyBest) TXT_MyBest->SetText(ClearTime);
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -26,16 +26,21 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Ranking")
 	void ApplyServerRanking();
 
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> TXT_MyRank;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> TXT_MyBest;
+
 private:
 	void DisconnectRanking();
+	void UpdatePersonalRecord(EPBRankingState State, const FPBRankingRecord& Best = {});
 
 	UFUNCTION()
 	void UpdateRanking();
 
 	UPROPERTY(Transient) TObjectPtr<UPBRankingSubsystem> Ranking;
-	UPROPERTY(Transient) TObjectPtr<UTextBlock> RankingTitle;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> EmptyMessage;
-	FText OriginalTitle;
 	FText OriginalEmptyMessage;
 	EPBRankingState LastTopState = EPBRankingState::Idle;
 };

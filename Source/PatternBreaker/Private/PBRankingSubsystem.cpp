@@ -186,9 +186,15 @@ void UPBRankingSubsystem::HandlePersonal(uint64 Generation, int64 RequestedUser,
 			}
 			else if (Best && Best->TryGetObject(Row) && Row && Row->IsValid() && ReadClear(**Row, Record))
 			{
-				PersonalBest = MoveTemp(Record);
-				PersonalState = EPBRankingState::Ready;
-				PersonalResponse.Result = EResult::Ok;
+				// Older servers omit rank. Their TOP 100 response can still supply a known rank.
+				const auto Rank = (*Row)->TryGetField(TEXT("rank"));
+				if (!Rank || ((*Row)->HasTypedField<EJson::Number>(TEXT("rank")) &&
+					(*Row)->TryGetNumberField(TEXT("rank"), Record.Rank) && Record.Rank > 0))
+				{
+					PersonalBest = MoveTemp(Record);
+					PersonalState = EPBRankingState::Ready;
+					PersonalResponse.Result = EResult::Ok;
+				}
 			}
 		}
 	}
@@ -203,7 +209,7 @@ int32 UPBRankingSubsystem::GetRankAtIndex(int32 Index) const
 FPBRankingRecord UPBRankingSubsystem::GetPersonalBest() const
 {
 	FPBRankingRecord Best = PersonalBest;
-	if (Best.UserId != 0)
+	if (Best.UserId != 0 && Best.Rank == 0)
 	{
 		const FPBRankingRecord* Match = Records.FindByPredicate([Id = Best.UserId](const FPBRankingRecord& Record)
 		{

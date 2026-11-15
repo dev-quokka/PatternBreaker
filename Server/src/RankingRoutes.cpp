@@ -101,7 +101,12 @@ void registerRankingRoutes(drogon::HttpAppFramework& app, const drogon::orm::DbC
 
             client->execSqlAsync(
                 "SELECT u.username, best.elapsed_ms, "
-                "DATE_FORMAT(best.cleared_at, '%Y-%m-%dT%H:%i:%sZ') AS cleared_at "
+                "DATE_FORMAT(best.cleared_at, '%Y-%m-%dT%H:%i:%sZ') AS cleared_at, "
+                "(SELECT COUNT(*) + 1 FROM raid_best_records AS ahead "
+                " WHERE ahead.elapsed_ms < best.elapsed_ms "
+                " OR (ahead.elapsed_ms = best.elapsed_ms AND ahead.cleared_at < best.cleared_at) "
+                " OR (ahead.elapsed_ms = best.elapsed_ms AND ahead.cleared_at = best.cleared_at "
+                "     AND ahead.clear_record_id < best.clear_record_id)) AS personal_rank "
                 "FROM users AS u LEFT JOIN raid_best_records AS best ON best.user_id = u.id WHERE u.id = ?",
                 [respond, userId = *userId](const drogon::orm::Result& result) {
                     if (result.empty())
@@ -114,6 +119,10 @@ void registerRankingRoutes(drogon::HttpAppFramework& app, const drogon::orm::DbC
                     body["user_id"] = Json::UInt64(userId);
                     body["username"] = row["username"].as<std::string>();
                     body["best_record"] = row["elapsed_ms"].isNull() ? Json::Value{} : bestRecordJson(row);
+                    if (!body["best_record"].isNull())
+                    {
+                        body["best_record"]["rank"] = Json::UInt64(row["personal_rank"].as<unsigned long long>());
+                    }
                     respondJson(respond, drogon::k200OK, body);
                 },
                 [respond](const drogon::orm::DrogonDbException&) { respondDatabaseUnavailable(respond); },

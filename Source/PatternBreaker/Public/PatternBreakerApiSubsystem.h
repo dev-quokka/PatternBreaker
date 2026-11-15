@@ -109,7 +109,7 @@ struct PATTERNBREAKER_API FPatternBreakerRaidResponse
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPatternBreakerRaidCompleted, const FPatternBreakerRaidResponse&, Response);
 
-UCLASS(Config = Game, DefaultConfig)
+UCLASS()
 class PATTERNBREAKER_API UPatternBreakerApiSubsystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
@@ -172,6 +172,7 @@ public:
 		TFunction<void(const FPatternBreakerAuthResponse&, const FString&)> Completion);
 	FSimpleMulticastDelegate OnAuthSessionChanged;
 
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
 private:
@@ -193,8 +194,7 @@ private:
 		TSharedPtr<IHttpResponse, ESPMode::ThreadSafe> Response, bool bSucceeded, bool bStart);
 	void CompleteRaidRequest(bool bStart, FPatternBreakerRaidResponse Response);
 
-	UPROPERTY(Config)
-	FString ServerBaseUrl = TEXT("http://127.0.0.1:18080");
+	FString ServerBaseUrl;
 
 	TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> HealthRequest;
 	TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> RegistrationRequest;

@@ -6,6 +6,7 @@
 #include "Components/WidgetSwitcher.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 #define LOCTEXT_NAMESPACE "PatternBreakerMainMenu"
 
@@ -60,7 +61,9 @@ void UPatternBreakerMainMenu::NativeOnInitialized()
 	StartButton->OnClicked.AddUniqueDynamic(this, &ThisClass::StartGame);
 	RankingButton->OnClicked.AddUniqueDynamic(this, &ThisClass::OpenRanking);
 	BTN_Login->OnClicked.AddUniqueDynamic(this, &ThisClass::SubmitLogin);
-	BTN_Register->OnClicked.AddUniqueDynamic(this, &ThisClass::SubmitRegistration);
+	// Keep the Designer name and replace any legacy click handlers on this button.
+	BTN_Register->OnClicked.Clear();
+	BTN_Register->OnClicked.AddUniqueDynamic(this, &ThisClass::QuitFromLogin);
 	BTN_Logout->OnClicked.AddUniqueDynamic(this, &ThisClass::SignOut);
 }
 
@@ -76,7 +79,6 @@ void UPatternBreakerMainMenu::NativeConstruct()
 		ShowLogin(LOCTEXT("Unavailable", "Sign-in is unavailable."));
 		return;
 	}
-	Api->OnRegistrationCompleted.AddUniqueDynamic(this, &ThisClass::HandleRegistration);
 	Api->OnLoginCompleted.AddUniqueDynamic(this, &ThisClass::HandleLogin);
 	Api->OnCurrentUserCompleted.AddUniqueDynamic(this, &ThisClass::HandleCurrentUser);
 	ShowLogin();
@@ -90,7 +92,6 @@ void UPatternBreakerMainMenu::NativeDestruct()
 {
 	if (Api)
 	{
-		Api->OnRegistrationCompleted.RemoveDynamic(this, &ThisClass::HandleRegistration);
 		Api->OnLoginCompleted.RemoveDynamic(this, &ThisClass::HandleLogin);
 		Api->OnCurrentUserCompleted.RemoveDynamic(this, &ThisClass::HandleCurrentUser);
 		Api = nullptr;
@@ -102,12 +103,18 @@ void UPatternBreakerMainMenu::NativeDestruct()
 	Super::NativeDestruct();
 }
 
-void UPatternBreakerMainMenu::SubmitLogin() { SubmitCredentials(EAction::Login); }
-void UPatternBreakerMainMenu::SubmitRegistration() { SubmitCredentials(EAction::Register); }
 void UPatternBreakerMainMenu::StartGame() { if (PendingAction == EAction::Idle) ConfirmSession(EAction::StartGame); }
 void UPatternBreakerMainMenu::OpenRanking() { if (PendingAction == EAction::Idle) ConfirmSession(EAction::Ranking); }
 
-void UPatternBreakerMainMenu::SubmitCredentials(EAction Action)
+void UPatternBreakerMainMenu::QuitFromLogin()
+{
+	if (AuthScreens->GetActiveWidget() == LoginPage)
+	{
+		UKismetSystemLibrary::QuitGame(this, GetOwningPlayer(), EQuitPreference::Quit, false);
+	}
+}
+
+void UPatternBreakerMainMenu::SubmitLogin()
 {
 	if (!Api || PendingAction != EAction::Idle || AuthScreens->GetActiveWidget() != LoginPage) return;
 	const FString Username = TXT_Username->GetText().ToString().TrimStartAndEnd();
@@ -118,16 +125,8 @@ void UPatternBreakerMainMenu::SubmitCredentials(EAction Action)
 		ShowLogin(LOCTEXT("MissingInput", "Enter your username and password."));
 		return;
 	}
-	if (Action == EAction::Register)
-	{
-		SetAction(Action, LOCTEXT("Registering", "Creating your account..."));
-		Api->RegisterAccount(Username, Password);
-	}
-	else
-	{
-		SetAction(Action, LOCTEXT("SigningIn", "Signing in..."));
-		Api->Login(Username, Password);
-	}
+	SetAction(EAction::Login, LOCTEXT("SigningIn", "Signing in..."));
+	Api->Login(Username, Password);
 }
 
 void UPatternBreakerMainMenu::ConfirmSession(EAction Action)
@@ -142,13 +141,6 @@ void UPatternBreakerMainMenu::ConfirmSession(EAction Action)
 	}
 	SetAction(Action, LOCTEXT("Checking", "Verifying your session..."));
 	Api->GetCurrentUser();
-}
-
-void UPatternBreakerMainMenu::HandleRegistration(const FPatternBreakerAuthResponse& Response)
-{
-	if (PendingAction != EAction::Register) return;
-	ShowLogin(Response.Result == EPatternBreakerAuthResult::Ok
-		? LOCTEXT("Registered", "Account created. You can sign in now.") : DescribeFailure(Response));
 }
 
 void UPatternBreakerMainMenu::HandleLogin(const FPatternBreakerAuthResponse& Response, const FPatternBreakerAuthUser& User)
@@ -194,7 +186,7 @@ void UPatternBreakerMainMenu::SetAction(EAction Action, const FText& Message)
 	const bool bIdle = Action == EAction::Idle;
 	const bool bMenu = AuthScreens->GetActiveWidget() == MenuPage;
 	BTN_Login->SetIsEnabled(bIdle && Api != nullptr);
-	BTN_Register->SetIsEnabled(bIdle && Api != nullptr);
+	BTN_Register->SetIsEnabled(!bMenu);
 	StartButton->SetIsEnabled(bIdle && bMenu);
 	RankingButton->SetIsEnabled(bIdle && bMenu);
 	LBL_LoginMessage->SetText(bMenu ? FText() : Message);

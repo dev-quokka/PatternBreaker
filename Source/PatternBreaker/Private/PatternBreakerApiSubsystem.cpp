@@ -1,10 +1,16 @@
 #include "PatternBreakerApiSubsystem.h"
 
 #include "Dom/JsonObject.h"
+#include "HAL/PlatformFile.h"
+#include "HAL/PlatformProcess.h"
 #include "HAL/PlatformTime.h"
 #include "HttpModule.h"
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
+#include "Internationalization/Regex.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
@@ -20,7 +26,33 @@ DEFINE_LOG_CATEGORY_STATIC(LogPatternBreakerApi, Log, All);
 namespace
 {
 	constexpr float RequestTimeoutSeconds = 5.0f;
+	constexpr const TCHAR* DefaultServerBaseUrl = TEXT("http://127.0.0.1:18080");
 	using EAuthResult = EPatternBreakerAuthResult;
+
+	bool IsValidServerBaseUrl(const FString& Url)
+	{
+		// Only an HTTP(S) origin is accepted. API paths are appended by GetApiUrl.
+		const FRegexPattern OriginPattern(TEXT("^https?://([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)(?::([0-9]{1,5}))?$"));
+		FRegexMatcher Origin(OriginPattern, Url);
+		if (!Origin.FindNext()) return false;
+
+		const FString Host = Origin.GetCaptureGroup(1);
+		const FString Port = Origin.GetCaptureGroup(2);
+		if (Host.Len() > 253 || (!Port.IsEmpty() && (FCString::Atoi(*Port) == 0 || FCString::Atoi(*Port) > 65535))) return false;
+
+		// A numeric host must be a canonical IPv4 literal, with no abbreviated or octal components.
+		if (FRegexMatcher(FRegexPattern(TEXT("^[0-9.]+$")), Host).FindNext())
+		{
+			TArray<FString> Octets;
+			Host.ParseIntoArray(Octets, TEXT("."));
+			if (Octets.Num() != 4) return false;
+			for (const FString& Octet : Octets)
+			{
+				if (Octet.Len() > 3 || (Octet.Len() > 1 && Octet[0] == '0') || FCString::Atoi(*Octet) > 255) return false;
+			}
+		}
+		return true;
+	}
 
 	void CancelPendingRequest(FHttpRequestPtr& PendingRequest)
 	{
@@ -123,6 +155,34 @@ namespace
 #endif
 }
 
+void UPatternBreakerApiSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+	ServerBaseUrl = DefaultServerBaseUrl;
+
+	// Staged games read a loose file next to the actual game binary, outside the cooked containers.
+	const FString ConfigDirectory = GIsEditor ? FPaths::ProjectDir() : FString(FPlatformProcess::BaseDir());
+	const FString ConfigPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(ConfigDirectory, TEXT("PatternBreakerClient.ini")));
+	FString Contents;
+	if (!FFileHelper::LoadFileToString(Contents, &IPlatformFile::GetPlatformPhysical(), *ConfigPath,
+		FFileHelper::EHashOptions::None, FILEREAD_Silent)) return;
+
+	FConfigFile Config;
+	// The default Unreal parser treats an unquoted // as a comment, including in http://.
+	Config.bPythonConfigParserMode = true;
+	Config.ProcessInputFileContents(Contents, ConfigPath);
+	FString ConfiguredUrl;
+	Config.GetString(TEXT("Server"), TEXT("BaseUrl"), ConfiguredUrl);
+	ConfiguredUrl.TrimStartAndEndInline();
+	while (ConfiguredUrl.RemoveFromEnd(TEXT("/"))) {}
+	if (!IsValidServerBaseUrl(ConfiguredUrl))
+	{
+		UE_LOG(LogPatternBreakerApi, Warning, TEXT("Invalid [Server] BaseUrl in %s. Using the default server address."), *ConfigPath);
+		return;
+	}
+	ServerBaseUrl = MoveTemp(ConfiguredUrl);
+}
+
 void UPatternBreakerApiSubsystem::CheckServerHealth()
 {
 	check(IsInGameThread());
@@ -147,11 +207,7 @@ void UPatternBreakerApiSubsystem::CheckServerHealth()
 
 FString UPatternBreakerApiSubsystem::GetApiUrl(const TCHAR* Path) const
 {
-	FString BaseUrl = ServerBaseUrl.TrimStartAndEnd();
-	while (BaseUrl.RemoveFromEnd(TEXT("/")))
-	{
-	}
-	return BaseUrl.IsEmpty() ? FString() : BaseUrl + Path;
+	return ServerBaseUrl.IsEmpty() ? FString() : ServerBaseUrl + Path;
 }
 
 FHttpRequestRef UPatternBreakerApiSubsystem::CreateRequest(const TCHAR* Verb, const FString& Url) const

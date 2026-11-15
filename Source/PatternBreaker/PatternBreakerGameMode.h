@@ -10,6 +10,7 @@
 class ABossCharacter;
 class APatternBreakerCharacter;
 class UPatternBreakerApiSubsystem;
+class UTextBlock;
 struct FPatternBreakerRaidResponse;
 
 UENUM(BlueprintType)
@@ -57,6 +58,7 @@ public:
 	virtual void StartPlay() override;
 
 protected:
+	virtual void Tick(float DeltaSeconds) override;
 	virtual void FinishRestartPlayer(AController* NewPlayer, const FRotator& StartRotation) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
@@ -71,6 +73,7 @@ private:
 	TWeakObjectPtr<ABossCharacter> RaidBoss;
 	TWeakObjectPtr<UPatternBreakerApiSubsystem> RaidApi;
 	TWeakObjectPtr<AController> WaitingController;
+	TWeakObjectPtr<UTextBlock> ReturnCountdownLabel;
 	FTimerHandle RemainingTimeTimer;
 	FTimerHandle RaidDeadlineTimer;
 	FTimerHandle MainMenuReturnTimer;
@@ -86,6 +89,7 @@ private:
 	bool bRecoveringPreviousClear = false;
 	bool bMainMenuTravelRequested = false;
 	int32 FinishAttempts = 0;
+	int32 DisplayedReturnSeconds = 0;
 
 	void TryStartRaid();
 	void PublishRemainingTime();
@@ -94,6 +98,7 @@ private:
 	void PublishRaidResult();
 	void RetryClearSave();
 	void AllowMenuReturn();
+	void UpdateMenuReturnCountdown();
 	void ReleaseWaitingInput();
 	void ShowRaidServerMessage(const FText& Message);
 	void FailRaidStart(const FText& Message);

@@ -22,6 +22,17 @@ namespace
 {
 	constexpr int32 MaxClearSaveAttempts = 3;
 
+	UUserWidget* FindCombatHUD(const UObject* WorldContext)
+	{
+		TArray<UUserWidget*> Widgets;
+		UWidgetBlueprintLibrary::GetAllWidgetsOfClass(WorldContext, Widgets, UUserWidget::StaticClass(), true);
+		for (UUserWidget* Widget : Widgets)
+		{
+			if (Widget->GetClass()->GetFName() == TEXT("WBP_CombatHUD_C")) return Widget;
+		}
+		return nullptr;
+	}
+
 	FText DescribeStartFailure(const FPatternBreakerRaidResponse& Response)
 	{
 		if (Response.ServerStatus == TEXT("raid_already_active") || Response.Result == EPatternBreakerAuthResult::Busy)
@@ -39,7 +50,8 @@ namespace
 
 APatternBreakerGameMode::APatternBreakerGameMode()
 {
-	// stub
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
 }
 
 void APatternBreakerGameMode::StartPlay()
@@ -52,6 +64,12 @@ void APatternBreakerGameMode::FinishRestartPlayer(AController* NewPlayer, const 
 {
 	Super::FinishRestartPlayer(NewPlayer, StartRotation);
 	TryStartRaid();
+}
+
+void APatternBreakerGameMode::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	UpdateMenuReturnCountdown();
 }
 
 void APatternBreakerGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -363,6 +381,13 @@ void APatternBreakerGameMode::ShowRaidServerMessage(const FText& Message)
 	for (UUserWidget* Widget : Widgets)
 	{
 		if (Widget->GetClass()->GetFName() != TEXT("WBP_CombatHUD_C")) continue;
+		if (!bCanReturnToMenu)
+		{
+			if (UWidget* Countdown = Widget->GetWidgetFromName(TEXT("TXT_ReturnCountdown")))
+			{
+				Countdown->SetVisibility(ESlateVisibility::Hidden);
+			}
+		}
 		if (UTextBlock* Label = Cast<UTextBlock>(Widget->GetWidgetFromName(TEXT("TXT_RaidResult"))))
 		{
 			Label->SetText(Message);
@@ -384,6 +409,31 @@ void APatternBreakerGameMode::AllowMenuReturn()
 	if (!bMainMenuTravelRequested)
 	{
 		GetWorldTimerManager().SetTimer(MainMenuReturnTimer, this, &APatternBreakerGameMode::ReturnToMainMenu, 5.0f);
+		if (UUserWidget* HUD = FindCombatHUD(this))
+		{
+			ReturnCountdownLabel = Cast<UTextBlock>(HUD->GetWidgetFromName(TEXT("TXT_ReturnCountdown")));
+			if (UTextBlock* Hint = Cast<UTextBlock>(HUD->GetWidgetFromName(TEXT("TXT_ReturnHint"))))
+			{
+				Hint->SetText(LOCTEXT("ReturnHint", "[M] 즉시 메뉴로 돌아가기"));
+			}
+		}
+		UpdateMenuReturnCountdown();
+		SetActorTickEnabled(ReturnCountdownLabel.IsValid());
+	}
+}
+
+void APatternBreakerGameMode::UpdateMenuReturnCountdown()
+{
+	const int32 Seconds = FMath::CeilToInt(FMath::Max(0.0f, GetWorldTimerManager().GetTimerRemaining(MainMenuReturnTimer)));
+	if (Seconds == DisplayedReturnSeconds) return;
+	DisplayedReturnSeconds = Seconds;
+	if (UTextBlock* Countdown = ReturnCountdownLabel.Get())
+	{
+		if (Seconds > 0)
+		{
+			Countdown->SetText(FText::Format(LOCTEXT("ReturnCountdown", "{0}초 후 자동 복귀"), FText::AsNumber(Seconds)));
+		}
+		Countdown->SetVisibility(Seconds > 0 ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
 	}
 }
 
@@ -396,6 +446,8 @@ void APatternBreakerGameMode::ReturnToMainMenu()
 
 	bMainMenuTravelRequested = true;
 	GetWorldTimerManager().ClearTimer(MainMenuReturnTimer);
+	SetActorTickEnabled(false);
+	UpdateMenuReturnCountdown();
 	UGameplayStatics::OpenLevelBySoftObjectPtr(this, MainMenuLevel);
 }
 

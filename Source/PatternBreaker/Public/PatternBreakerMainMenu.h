@@ -22,9 +22,8 @@ protected:
 	virtual void NativeDestruct() override;
 
 private:
-	enum class EAction : uint8 { Idle, Register, Login, OpenMenu, StartGame, Ranking };
+	enum class EAction : uint8 { Idle, Login, OpenMenu, StartGame, Ranking };
 
-	void SubmitCredentials(EAction Action);
 	void ConfirmSession(EAction Action);
 	void SetAction(EAction Action, const FText& Message = FText());
 	void ShowLogin(const FText& Message = FText());
@@ -32,11 +31,10 @@ private:
 	void CheckSessionExpiry();
 
 	UFUNCTION() void SubmitLogin();
-	UFUNCTION() void SubmitRegistration();
+	UFUNCTION() void QuitFromLogin();
 	UFUNCTION() void SignOut();
 	UFUNCTION() void StartGame();
 	UFUNCTION() void OpenRanking();
-	UFUNCTION() void HandleRegistration(const FPatternBreakerAuthResponse& Response);
 	UFUNCTION() void HandleLogin(const FPatternBreakerAuthResponse& Response, const FPatternBreakerAuthUser& User);
 	UFUNCTION() void HandleCurrentUser(const FPatternBreakerAuthResponse& Response, const FPatternBreakerAuthUser& User);
 

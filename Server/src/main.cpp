@@ -20,6 +20,7 @@
 namespace
 {
 using ResponseCallback = std::function<void(const drogon::HttpResponsePtr&)>;
+constexpr int ListenerPort = 18080;
 
 std::string readEnvironmentVariable(const char* name)
 {
@@ -32,6 +33,32 @@ std::string readEnvironmentVariable(const char* name)
     const char* value = std::getenv(name);
     return value ? std::string(value) : std::string{};
 #endif
+}
+
+bool isIpv4Address(std::string_view address)
+{
+    for (int part = 0; part < 4; ++part)
+    {
+        const auto separator = address.find('.');
+        if ((separator == std::string_view::npos) != (part == 3))
+        {
+            return false;
+        }
+        const auto octet = address.substr(0, separator);
+        const auto end = octet.data() + octet.size();
+        unsigned int value = 0;
+        const auto parsed = std::from_chars(octet.data(), end, value);
+        if (parsed.ec != std::errc{} || parsed.ptr != end || value > 255 ||
+            (octet.size() > 1 && octet.front() == '0'))
+        {
+            return false;
+        }
+        if (part < 3)
+        {
+            address.remove_prefix(separator + 1);
+        }
+    }
+    return true;
 }
 
 bool appendConnectionParameter(std::string& connectionInfo, std::string_view key, std::string_view value)
@@ -111,6 +138,17 @@ int main()
         },
         [] { std::fflush(stdout); });
 
+    auto listenAddress = readEnvironmentVariable("PB_HTTP_LISTEN_ADDRESS");
+    if (listenAddress.empty())
+    {
+        listenAddress = "127.0.0.1";
+    }
+    if (!isIpv4Address(listenAddress))
+    {
+        LOG_ERROR << "PB_HTTP_LISTEN_ADDRESS must be an IPv4 address";
+        return EXIT_FAILURE;
+    }
+
     auto& app = drogon::app();
     const auto client = createDatabaseClient();
     app.registerHandler(
@@ -149,5 +187,6 @@ int main()
     registerAuthRoutes(app, client, tokens);
     registerRaidRoutes(app, client, tokens);
     registerRankingRoutes(app, client, tokens);
-    app.addListener("127.0.0.1", 18080).run();
+    LOG_INFO << "HTTP listener configured for " << listenAddress << ':' << ListenerPort;
+    app.addListener(listenAddress, ListenerPort).run();
 }
