@@ -240,4 +240,6 @@ void APatternBreakerCharacter::AttackBossForTest()
 	{
 		NearestBoss->ApplyBossDamage(30.0f);
 	}
+
+	OnAttackAnimationRequested();
 }

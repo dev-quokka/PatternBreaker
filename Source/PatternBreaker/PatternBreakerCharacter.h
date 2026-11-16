@@ -83,6 +83,10 @@ protected:
 	/** Test attack: damage the nearest living boss within 300 cm on F press. */
 	void AttackBossForTest();
 
+	/** Called after each accepted attack input, including a swing that misses. For visuals only. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Player|Combat")
+	void OnAttackAnimationRequested();
+
 	/** Called for movement input */
 	void Move(const FInputActionValue& Value);
 
