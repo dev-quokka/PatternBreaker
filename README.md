@@ -84,24 +84,7 @@ AI와 협업하는 개발 과정을 경험하고자 시작한 프로젝트입니
 
 <br>
 
-## 6. Windows 클라이언트 서버 주소 설정
-
-클라이언트는 시작할 때 `PatternBreakerClient.ini`의 `[Server]` 섹션을 읽습니다. 같은 주소가 서버 상태 확인, 회원가입, 로그인, 랭킹, 레이드 시작 및 결과 저장에 적용됩니다. 설정이 없거나 형식이 잘못되면 `http://127.0.0.1:18080`을 사용하므로 개발 PC에서 로컬 서버를 사용할 때는 파일을 만들 필요가 없습니다.
-
-1. Windows 패키지의 `PatternBreaker\Binaries\Win64` 폴더를 엽니다. 이 폴더에는 `PatternBreaker.exe` 또는 `PatternBreaker-Win64-Shipping.exe`가 있습니다. 에디터에서 실행할 때는 `PatternBreaker.uproject`가 있는 폴더를 사용합니다.
-2. 메모장에서 `PatternBreakerClient.ini`를 만듭니다. **다른 이름으로 저장**에서 파일 형식을 **모든 파일**로 지정해 `.ini.txt`가 붙지 않게 합니다.
-3. 갤럭시북에서 LAN 서버에 연결하려면 아래 내용을 저장하고 게임을 다시 실행합니다. 에디터에서는 PIE를 새로 시작합니다.
-
-   ```ini
-   [Server]
-   BaseUrl=http://172.30.1.18:18080
-   ```
-
-`BaseUrl`에는 `http://` 또는 `https://`와 IPv4 주소 또는 호스트 이름을 입력합니다. 포트는 필요한 경우에만 붙입니다. `/health` 같은 API 경로는 클라이언트가 붙입니다. IP가 바뀌면 파일의 주소만 수정하면 됩니다. 형식이 올바르지만 서버에 접속할 수 없는 경우에는 해당 서버에 대한 연결 오류가 표시됩니다. 로컬 기본값으로 돌아가려면 파일을 삭제하거나 `BaseUrl=http://127.0.0.1:18080`으로 바꾸고 재실행합니다.
-
-기존 `DefaultGame.ini`나 `-ini:Game:...:ServerBaseUrl`로 주소를 지정하던 실행 환경은 `PatternBreakerClient.ini`로 옮기면 됩니다.
-
-## 7. 개발 현황
+## 6. 개발 기록
 
 ### v0.1 - 보스 전투 프로토타입
 
